@@ -53,10 +53,17 @@ def visualanalysis(input, output_filename=None):
 	#ts = df.ts
 	av_number = df.groupby([t.dt.date]).apply(len)
 	print('Average number of records (signals) per day: \n', av_number)
+	#diagram
+	# sns.set_theme(style='darkgrid')
+	# sns.displot(df, x=t, bins=len(t))
+	# plt.show()
 
 	# distribution of the number of records (signals) per object
 	num_o = df.groupby('oid').apply(len)
 	print('Number of records (signals) per object: \n', num_o)
+	# sns.set_theme(style='darkgrid')
+	# sns.displot(df, x='oid', bins=objects)
+	# plt.show()
 
 	# distribution of the number of records (signals) per object per day
 	num_o_d = df.groupby(['oid', t.dt.date]).apply(len)
