@@ -1,4 +1,3 @@
-from tkinter import LabelFrame
 from helper import *
 import folium
 import webbrowser
@@ -6,7 +5,21 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import datetime as dt
+from IPython.display import display
+import pandas as pd
 
+
+def datepicker(df):
+	# selecting a date 
+	t = pd.to_datetime(df.t, unit='ms')
+	dates = t.dt.date.unique()
+	print('The csv contains records from ', len(dates), 'days.')
+	print('Please select between 0-', len(dates)-1, ' for plotting: ', dates)
+	d = input()
+	date = dates[int(d)]
+	return date
+	
 
 def visualanalysis(input, output_filename=None):
 	# map visualization
@@ -14,7 +27,9 @@ def visualanalysis(input, output_filename=None):
 	lon = df['lon']
 	lat = df['lat']
 	oid = df['oid']
-	
+
+	date = datepicker(df)
+
 	# creating bounding box
 	bbox = (lat.min(), lon.min(), lat.max(), lon.max())
 	print('Bounding Box: ', bbox)
@@ -25,11 +40,11 @@ def visualanalysis(input, output_filename=None):
 	m.fit_bounds([[lat.min(), lon.min()], [lat.max(), lon.max()]])
 	
 	# adding the records (signals) to map
-	# to-do: clustering for bigger datasets
 	for i in range(0, len(df)):
-		folium.CircleMarker(location=[df.iloc[i]['lat'], df.iloc[i]['lon']],
-							radius=2, weight=5,
-							popup=df.iloc[i]['oid']).add_to(m)
+		if (pd.to_datetime(df.iloc[i]['t'], unit='ms') == date):
+			folium.CircleMarker(location=[df.iloc[i]['lat'], df.iloc[i]['lon']],
+								radius=2, weight=5,
+								popup=df.iloc[i]['oid']).add_to(m)
 	
 	# creating html file
 	if output_filename!= None:
@@ -49,26 +64,17 @@ def visualanalysis(input, output_filename=None):
 
 	# average number of records (signals) per day
 	t = pd.to_datetime(df.t, unit='ms')
-	#to-do: not recognizing ts column as datetime form
-	#ts = df.ts
+	print(t[1])
 	av_number = df.groupby([t.dt.date]).apply(len)
 	print('Average number of records (signals) per day: \n', av_number)
-	#diagram
-	# sns.set_theme(style='darkgrid')
-	# sns.displot(df, x=t, bins=len(t))
-	# plt.show()
 
 	# distribution of the number of records (signals) per object
 	num_o = df.groupby('oid').apply(len)
 	print('Number of records (signals) per object: \n', num_o)
-	# sns.set_theme(style='darkgrid')
-	# sns.displot(df, x='oid', bins=objects)
-	# plt.show()
-
+	
 	# distribution of the number of records (signals) per object per day
 	num_o_d = df.groupby(['oid', t.dt.date]).apply(len)
 	print('Number of records (signals) per object per day: \n', num_o_d)
-	
 	
 
 if __name__ == '__main__':
