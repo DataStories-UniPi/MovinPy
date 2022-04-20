@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Analytics</title>
+    <link rel="stylesheet" href="/static/css/visuals.css">
+    <!-- papa parse-->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <!-- jquery-->
+    <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+    <!-- css for leaflet map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+    crossorigin=""/>
+    <!-- javascript file for leaflet map -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+    integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+    crossorigin=""></script>
+    <!-- chart.js library for plots-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <!-- map height -->
+    <style>
+       #leaflet_map{ height: 800px; }
+       .chartBox{width: 350px;}
+    </style>
+</head>
+<body>
+   <!-- navigation bar --> 
+    <nav class='nav'>
+        <input type="file" id="csvfile" accept=".csv">
+        <button id="upload_button">Upload CSV file</button> 
+        <a href='/' class='nav__link' data-link>Map</a>
+        <a href='/plots' class='nav__link' data-link>Plots</a>
+
+    </nav>
+    <div id="app"></div>
+    <script type='module' src='static/js/visuals.js'></script>
+</body>
+</html>
