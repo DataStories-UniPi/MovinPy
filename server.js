@@ -1,7 +1,8 @@
 const express = require('express');
 const path = require('path');
-
 const app = express();
+
+app.listen(process.env.PORT || 3000, () => console.log('Server running...')); 
 
 app.use('/static',express.static(path.resolve(__dirname, 'static')));
 
@@ -15,5 +16,7 @@ app.post('/*', (request, response) => {
     console.log(request);
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('Server running...'));
+
+
+
 

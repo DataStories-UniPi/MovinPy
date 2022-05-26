@@ -11,12 +11,12 @@ export default class{
     }
     static getCSV(){
     //upload csv file by clicking a button
-        const tdata= []; 
+        const tsdata= []; 
         const oiddata=[];
         const lat=[];
         const lon=[];
 
-        const upload_button = document.getElementById('upload_button').
+        const upload_button = document.getElementById('csvfile').
         addEventListener('click', () => {
         //reading the csv file with papa parse library
         Papa.parse(document.getElementById('csvfile').files[0],
@@ -27,13 +27,13 @@ export default class{
             complete: function(results){
             //creating an array with all the timestamps and an array with all the oid
                 for (var i=0; i< results.data.length; i++){
-                    tdata.push(results.data[i].t);
+                    tsdata.push(results.data[i].ts);
                     oiddata.push(results.data[i].oid);
                     lat.push(results.data[i].lat);
                     lon.push(results.data[i].lon);
                 }  
             
-            console.log(tdata);
+            console.log(tsdata);
             console.log(oiddata);
             console.log(lat);
             console.log(lon);
@@ -42,7 +42,7 @@ export default class{
 
     });
 
-    return [lat, lon, oiddata];
+    return [lat, lon, oiddata, tsdata];
     }
    
 }

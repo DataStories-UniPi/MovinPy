@@ -1,6 +1,6 @@
 import Map from './views/Map.js';
 import Plots from './views/Plots.js';
-//import {PythonShell} from './node_modules/python-shell';
+import Repl from './views/Repl.js';
 
 const navigateTo = url => {
     history.pushState(null, null, url);
@@ -9,8 +9,9 @@ const navigateTo = url => {
 
 const router = async () => {
     const routes = [
-        {path: '/', view: Map},
-        {path: '/plots', view: Plots}
+        {path: '/map', view: Map},
+        {path: '/plots', view: Plots},
+        {path: '/repl', view: Repl}
     ];
     //test each route for potential match
     const potentialMatches = routes.map(route => {
@@ -35,21 +36,10 @@ const router = async () => {
     //getting the html from the method getHtml() and injecting it inside the inner html of the app element
     document.querySelector('#app').innerHTML = await view.getHtml();
 
-    if (location.pathname == '/'){
+    if (location.pathname == '/map'){
         //calling the getMap() function from Map.js
         view.getMap();
-        view.getClusters();
-    } else if (location.pathname == '/plots'){
-        //calling the getPlot() function from Plots.js
-        view.getPlot();
-    }
-    
-    //let {PythonShell} = require('python-shell');
-   
-    //PythonShell.run("test.py", null, function(err, results){
-    //    console.log(results);
-    //    console.log("python script finished");
-    //});
+    };
 };
 
 
