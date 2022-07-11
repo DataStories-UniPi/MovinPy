@@ -35,11 +35,6 @@ const router = async () => {
 
     //getting the html from the method getHtml() and injecting it inside the inner html of the app element
     document.querySelector('#app').innerHTML = await view.getHtml();
-
-    if (location.pathname == '/map'){
-        //calling the getMap() function from Map.js
-        view.getMap();
-    };
 };
 
 

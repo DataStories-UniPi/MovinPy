@@ -1,7 +1,7 @@
 body {
     --nav-width: 250px;
     margin: 0 0 0 var(--nav-width);
-    font-family: 'Times New Roman', Times, serif;
+    font-family: Arial, sans-serif;
     font-size: 18px;
 }
 .nav {
@@ -31,4 +31,22 @@ body {
 
 a {
     color: #005e95;
+}
+
+.pill{
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    padding: 0.5em 1em;
+    margin: 0.25em;
+    border-radius: 1em;
+    border: none;
+    outline: none;
+    background: #dddddd;
+    cursor: pointer;
+    display: inline-block;
+    position: relative;
+    
+}
+.pill:hover{
+    background: #cccccc;
 }

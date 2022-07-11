@@ -6,28 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Analytics</title>
     <link rel="stylesheet" href="/static/css/visuals.css">
-    <!-- papa parse-->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-    <!-- jquery-->
-    <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
-    <!-- css for leaflet map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-    integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
-    crossorigin=""/>
-    <!-- javascript file for leaflet map -->
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
-    integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
-    crossorigin=""></script>
     <!-- pyscript-->
     <script defer src="https://pyscript.net/alpha/pyscript.js"></script> 
-    <!-- map height -->
-    <style>
-       #leaflet_map{ height: 800px;}
-    </style>
     <!-- python libraries-->
 <py-env>
     - pandas
     - matplotlib
+    - folium
 </py-env>
 </head>
 <body>
@@ -55,6 +40,17 @@ from matplotlib import style
 style.use('ggplot')
 import matplotlib.gridspec as gridspec
 import calendar
+import folium
+import random
+import datetime
+
+df = pd.DataFrame() 
+#trajectory df keeps track of the trajectory colors of every object
+trajectories_df = pd.DataFrame(columns=['oid', 'color'])
+m = folium.Map(zoom_start=12)
+
+def HTML(text):
+    return text.replace("{{", "<").replace("}}", ">")
 
 def read_complete(event):
     #event is ProgressEvent
@@ -63,8 +59,28 @@ def read_complete(event):
 
     #basic statistics
     csv = StringIO(event.target.result)
+    global df
     df = pd.read_csv(csv)
+
+
+async def process_file(x):
+    fileList = document.getElementById('csvfile').files
     
+    for f in fileList:
+        #reader is a pyodide.JsProxy
+        reader = FileReader.new()
+
+        #create a python proxy for the callback function
+        onload_event = create_proxy(read_complete)
+
+        reader.onload = onload_event
+
+        reader.readAsText(f)
+
+def plots(*args):
+    #onerview of the data
+    pyscript.write('s0', df.head(10))
+
     #number of vessels
     pyscript.write('s1', len(df['oid'].unique()))
     
@@ -83,7 +99,7 @@ def read_complete(event):
     # distribution of number of records (signals) per vessel
     num_of_rec_per_v = df.groupby('oid').apply(len)
     out = pd.cut(num_of_rec_per_v, bins=10)
-    ax = out.value_counts(sort=False).plot.bar(figsize=(10,6), fontsize=8, width=0.75, cmap='Pastel1', rot=40)
+    ax = out.value_counts(sort=False).plot.bar(figsize=(6,6), fontsize=8, width=0.75, cmap='Pastel1', rot=40)
     plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     plt.suptitle('Distribution of the number of signals per vessel', fontsize=8, y=1)
     plt.xlabel('number of signals', fontsize=8)
@@ -94,7 +110,7 @@ def read_complete(event):
     num_of_rec_per_v_d = df.groupby([df.oid, pd.to_datetime(df.t, unit='ms').dt.date]).apply(len)
     num_of_rec_per_v_d = num_of_rec_per_v_d.groupby('oid').apply(lambda x: x.mean())
     out = pd.cut(num_of_rec_per_v_d, bins=10)
-    ax = out.value_counts(sort=False).plot.bar(figsize=(10,6), fontsize=8, width=0.75, cmap='Pastel1', rot=40)
+    ax = out.value_counts(sort=False).plot.bar(figsize=(6,6), fontsize=8, width=0.75, cmap='Pastel1', rot=40)
     plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     plt.suptitle('Distribution of the number of signals per vessel daily', fontsize=8, y=1)
     plt.xlabel('number of signals', fontsize=8)
@@ -106,31 +122,80 @@ def read_complete(event):
     num_of_rec_per_day.loc[:, 'day_name'] = pd.to_datetime(num_of_rec_per_day.t).dt.day_name()
     num_of_rec_per_day.loc[:, 'day_name']= pd.Categorical(num_of_rec_per_day.day_name, categories=list(calendar.day_name), ordered=True)
     num_of_rec_per_day.sort_values('day_name', inplace=True)
-    num_of_rec_per_day.plot.bar(x='day_name', figsize=(10,6), fontsize=8, width=0.75, legend=False, cmap='Pastel1', rot=30)
+    num_of_rec_per_day.plot.bar(x='day_name', figsize=(6,6), fontsize=8, width=0.75, legend=False, cmap='Pastel1', rot=30)
     plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-    plt.suptitle('Records per weekday')
+    plt.suptitle('Distribution of number of records (signals) per weekday:')
     plt.xlabel(r'',fontsize=8)
     plt.ylabel(r'number of records', fontsize=8)
     pyscript.write('plt3', plt)
 
 
-async def process_file(x):
-    fileList = document.getElementById('csvfile').files
+def trajectories():
+    color_list = ['red', 'blue', 'green', 'purple', 'orange', 'darkred',
+                 'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue',
+                 'darkpurple', 'white', 'pink', 'lightgreen',
+                 'gray', 'black', 'lightgray']
+
+    for i in range(0, len(df)):           
+        if df.iloc[i]['oid'] not in trajectories_df.values:
+            trajectory_color = random.choice(color_list)
+            trajectories_df.loc[len(trajectories_df.index)] = [df.iloc[i]['oid'], trajectory_color]
+        elif df.iloc[i]['oid'] in trajectories_df.values:
+            trajectory_color = trajectories_df['color'].where(trajectories_df['oid'] == df.iloc[i]['oid']).values
+   
+    return trajectories_df
+
+def date_picker(*args, **kwargs):
+    if trajectories_df.empty:
+        traj_df = trajectories()
+        #bouding box
+        m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
+    else:
+        traj_df = trajectories_df
+
+    min_input= Element('min').value
+    max_input= Element('max').value
+
+    inside_range=False
+
+    for i in range(0, len(df)):
+        if df.iloc[i]['t'].astype(str) in min_input or inside_range == True:
+            inside_range=True
+            x = df.iloc[i]['oid'].astype(int)
+            traj_color = traj_df.iloc[x]['color']
+            folium.CircleMarker(location=[df.iloc[i]['lat'], df.iloc[i]['lon']],
+                                radius=2, weight=5,
+                                color=traj_color, popup=df.iloc[i]['oid']).add_to(m)
+            if df.iloc[i]['t'].astype(str) in max_input:
+                inside_range=False
     
-    for f in fileList:
-        #reader is a pyodide.JsProxy
-        reader = FileReader.new()
+    pyscript.write('folium', m)
+   
 
-        #create a python proxy for the callback function
-        onload_event = create_proxy(read_complete)
+def generate_map(*args, **kwargs):
+    if trajectories_df.empty:
+        traj_df = trajectories()
+        #bouding box
+        m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
+    else:
+        traj_df = trajectories_df
 
-        reader.onload = onload_event
+    #plotting markers on the map
+    for i in range(0, len(df)):
+        x = df.iloc[i]['oid'].astype(int)
+        traj_color = traj_df.iloc[x]['color']
+        folium.CircleMarker(location=[df.iloc[i]['lat'], df.iloc[i]['lon']],
+                            radius=2, weight=5,
+                            color=traj_color, popup=df.iloc[i]['oid']).add_to(m)
+    
+    pyscript.write('folium', m)
+    
 
-        reader.readAsText(f)
-        
 def main():
+    
     #create a python proxy for the callback function
     file_event = create_proxy(process_file)
+    
     #set the listener to the callback
     e = document.getElementById("csvfile")
     e.addEventListener("change", file_event, False)
