@@ -36,31 +36,29 @@
 <div id="upload"></div>
 
 <div id="generatedefaultmap"></div>
-
+<br>
+<div id="min"></div>
+<div id="max"></div>
+<div id="generatetimestampmap"></div>
+<br>
+<div id="timeslider"></div>
 <div id="selectperiod"></div>
 <div id="selectduration"></div>
-<div id="generatedefaultmapwithtimeslider"></div>
-
+<br>
 <div id="columns"></div>
 <div id="lat"></div>
 <div id="lon"></div>
 <div id="altitude"></div>
 <div id="errortext"></div>
 <div id="generatecustomizedmap"></div>
-
-<div id="min"></div>
-<div id="max"></div>
-<div id="generatetimestampmap"></div>
-
 <div id="generateplots"></div>
 </div>
 <div style="margin-left:18%">
     <div id="table"></div>
     <div id="folium" style="width: 1000px; height: 800px"></div>
-    <div id="folium1" style="width: 1000px; height: 800px"></div>
-    <div id="folium2" style="width: 1000px; height: 800px"></div>
-    <div id="folium3" style="width: 1000px; height: 800px"></div>
-    <div id="folium4" style="width: 1000px; height: 800px"></div>
+    <div id="s00"></div>
+    <div id="s0"></div>
+
     <div id="s11"></div>
     <div id="s1"></div>
 
@@ -72,19 +70,20 @@
 
     <div id="s41"></div>
     <div id="s4"></div>
-
-    <div id="plt1"></div>
-    <div id="plt2"></div>
-    <div id="plt3"></div>
+    <br>
+    <table>
+        <tr>
+            <td><div id="plt1"></div></td>
+            <td><div id="plt2"></div></td>
+            <td><div id="plt3"></div></td>
+        </tr>
+    </table>
 </div>
 <py-script>
 #panel ui
 import asyncio
 import panel as pn
 from panel.io.pyodide import show
-#temporary
-import js
-from js import document, FileReader
 #main
 from pyodide import create_proxy
 import pandas as pd
@@ -101,7 +100,7 @@ import calendar
 import folium
 from folium import plugins
 import random
-import datetime
+from datetime import datetime, timezone
 #color scale (generate_speed_map)
 import branca.colormap as cmp
 
@@ -118,48 +117,55 @@ document.getElementById('table').style.display = 'none'
 #default map section
 generateDefaultMap = pn.widgets.Button(name='Generate Default Map', button_type='primary')
 
+#range date section
+MinDate = pn.widgets.DatetimePicker(name='Minimum Datetime')
+MaxDate = pn.widgets.DatetimePicker(name='Maximum Datetime')
+generateTimestampMap = pn.widgets.Button(name='Generate Map of a Datetime Range', button_type='primary')
+
+
 #timeslider map section
-selectPeriod = pn.widgets.Select(name='Select period', options=['P1M', 'P1D', 'PT1H', 'PT1M'])
-selectDuration = pn.widgets.Select(name='Select duration', options=['P1M', 'P1D', 'PT1H', 'PT1M'])
+TimesliderText = pn.pane.Markdown('Timeslider Options')
+selectPeriod = pn.widgets.Select(name='Select period', options=['', '1/month', '1/day', '1/hour', '1/minute'])
+selectDuration = pn.widgets.Select(name='Select duration', options=['', '1/month', '1/day', '1/hour', '1/minute'])
 
 generateDefaultMapWithTimeslider = pn.widgets.Button(name='Generate Default Map With Timeslider', button_type='primary')
 
 #customized map section
 ColumnText = pn.pane.Markdown('Columns (Required*)')
-LatSelect = pn.widgets.Select(name='Lat*', options=[])
-LonSelect = pn.widgets.Select(name='Lon*', options=[])
-AltitudeSelect = pn.widgets.Select(name='Altitude', options=[])
+LatSelect = pn.widgets.Select(name='Lat*', options=['lat'])
+LonSelect = pn.widgets.Select(name='Lon*', options=['lon'])
+AltitudeSelect = pn.widgets.Select(name='Color', options=[])
 ErrorText = pn.widgets.StaticText(name='', value='')
 generateCustomizedMap = pn.widgets.Button(name='Generate Customized Map', button_type='primary')
 
-#range timestamp section
-MinTimestamp = pn.widgets.TextInput(name='Min Timestamp', placeholder='Enter a min timestamp here...')
-MaxTimestamp = pn.widgets.TextInput(name='Max Timestamp', placeholder='Enter a max timestamp here...')
-generateTimestampMap = pn.widgets.Button(name='Generate Map of a Timestamp Range', button_type='primary')
-
 #plots section
 generatePlots = pn.widgets.Button(name='Generate Statistics & Plots', button_type='primary')
+
+#folium map section
+m = folium.Map(zoom_start=12)
+folium_pane = pn.pane.plot.Folium(m, height=800, width=1000)
+document.getElementById('folium').style.display = 'none'
+
+#static text section for statistics
+s00Text = pn.widgets.StaticText()
+s0Text = pn.widgets.StaticText()
+
+s11Text = pn.widgets.StaticText()
+s1Text = pn.widgets.StaticText()
+
+s21Text = pn.widgets.StaticText()
+s2Text = pn.widgets.StaticText()
+
+s31Text = pn.widgets.StaticText()
+s3Text = pn.widgets.StaticText()
+
+s41Text = pn.widgets.StaticText()
+s4Text = pn.widgets.StaticText()
 
 
 df = pd.DataFrame() 
 #trajectory df keeps track of the trajectory colors of every object
 trajectories_df = pd.DataFrame(columns=['oid', 'color'])
-
-
-def init_map():
-    #initialize the folium map
-    m = folium.Map(zoom_start=12)
-
-    #different styles of map are available with a layer control
-    folium.TileLayer('openstreetmap').add_to(m)
-    folium.TileLayer('cartodbdark_matter').add_to(m)
-    folium.TileLayer('cartodbpositron').add_to(m)
-    folium.TileLayer('stamenwatercolor').add_to(m)
-    folium.TileLayer('stamentoner').add_to(m)
-
-    folium.LayerControl().add_to(m)
-
-    return m
 
 
 def process_file(event):
@@ -176,32 +182,41 @@ def process_file(event):
 
         document.getElementById('table').style.display = 'block'
 
-    #fill the dropdowns with the specific column names
-    LatSelect.options = list(df.columns)
-    LonSelect.options = list(df.columns)
-    AltitudeSelect.options = list(df.columns)
+    #fill the color dropdown with the specific column names
+    options_list = list(df.columns)
+    options_list.insert(0, '')
+    AltitudeSelect.options = options_list
 
-   
+    #fill minimum & maximum datetime with the specific dates
+    min_date = df.iloc[0]['ts']
+    max_date = df.iloc[len(df)-1]['ts']
+    MinDate.value = datetime.fromisoformat(min_date)
+    MaxDate.value = datetime.fromisoformat(max_date)
+
 
 def plots(event):
-    #number of vessels
-    pyscript.write('s11', 'Number of records: ')
-    pyscript.write('s1', len(df['oid'].unique()))
+    #number of records
+    s00Text.value = 'Number of records:'
+    s0Text.value = len(df)
+
+    #number of objects
+    s11Text.value = 'Number of objects: '
+    s1Text.value = len(df['oid'].unique())
     
     #number of records (signals) per day
-    pyscript.write('s21', 'Number of records (signals) per day: ')
-    pyscript.write('s2', df.groupby([pd.to_datetime(df.t, unit='ms').dt.date]).apply(len))
-    
+    s21Text.value = 'Number of records (signals) per day: '
+    s2Text.value = df.groupby([pd.to_datetime(df.t, unit='ms').dt.date]).apply(len)
+
     #number of records(signals) per vessel
-    pyscript.write('s31', 'Number of records(signals) per object: ')
-    pyscript.write('s3', df.groupby('oid').apply(len))
+    s31Text.value = 'Number of records(signals) per object: '
+    s3Text.value = df.groupby('oid').apply(len)
 
     #average number of records (signals) per vessel daily
     df.groupby(['oid', pd.to_datetime(df.t, unit='ms').dt.date]).apply(len)
     average = df.groupby(['oid', pd.to_datetime(df.t, unit='ms').dt.date]).apply(len)
 
-    pyscript.write('s41', 'Average number of records (signals) per vessel daily: ')
-    pyscript.write('s4', average.groupby('oid').apply(lambda x: x.mean()))
+    s41Text.value = 'Average number of records (signals) per vessel daily: '
+    s4Text.value = average.groupby('oid').apply(lambda x: x.mean())
     
     #plots
     #distribution of number of records (signals) per vessel
@@ -232,11 +247,37 @@ def plots(event):
     num_of_rec_per_day.sort_values('day_name', inplace=True)
     num_of_rec_per_day.plot.bar(x='day_name', figsize=(6,6), fontsize=8, width=0.75, legend=False, cmap='tab20c', rot=30)
     plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-    plt.suptitle('Distribution of number of records (signals) per weekday:')
+    plt.suptitle('Distribution of number of records (signals) per weekday:', fontsize=8, y=1)
     plt.xlabel(r'',fontsize=8)
     plt.ylabel(r'number of records', fontsize=8)
     pyscript.write('plt3', plt)
 
+
+def init_map():
+    #initialize the folium map
+    m = folium.Map(zoom_start=12)
+    
+    #different styles of map are available with a layer control
+    folium.TileLayer('openstreetmap').add_to(m)
+    folium.TileLayer('cartodbdark_matter').add_to(m)
+    folium.TileLayer('cartodbpositron').add_to(m)
+    folium.TileLayer('stamenwatercolor').add_to(m)
+    folium.TileLayer('stamentoner').add_to(m)
+
+    folium.LayerControl().add_to(m)
+
+    #fullscreen option
+    plugins.Fullscreen(
+    position="topleft",
+    title="Expand me",
+    title_cancel="Exit me",
+    force_separate_button=True,
+    ).add_to(m)
+
+    #bounding box
+    m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
+
+    return m
 
 def trajectories():
     color_list = ['red', 'blue', 'green', 'purple', 'orange', 'darkred',
@@ -265,36 +306,64 @@ def speed_mean():
 
     return mean_speed
 
+def format_period_duration():
+    #period (str, default "P1D") – Used to construct the array of available times starting from the first available time.
+    #Format: ISO8601 Period ex: ‘P1M’ 1/month, ‘P1D’ 1/day, ‘PT1H’ 1/hour, and ‘PT1M’ 1/minute
 
-def generate_timestamp_map(event):
+    #duration (str, default None) – Period of time which the features will be shown on the map after their time has passed.
+    #If None, all previous times will be shown.
+    #Format: ISO8601 Duration ex: ‘P1M’ 1/month, ‘P1D’ 1/day, ‘PT1H’ 1/hour, and ‘PT1M’ 1/minute
+
+    #better results:
+    #period='PT1H'
+    #duration='P1M'
+
+    #changing the format of the period and duration values 
+    if selectPeriod.value == '1/month':
+        period_value = 'P1M'
+    elif selectPeriod.value == '1/day':
+        period_value = 'P1D'
+    elif selectPeriod.value == '1/hour':
+        period_value = 'PT1H'
+    elif selectPeriod.value == '1/minute':
+        period_value = 'PT1M'
+
+    if selectDuration.value == '1/month':
+        duration_value = 'P1M'
+    elif selectDuration.value == '1/day':
+        duration_value = 'P1D'
+    elif selectDuration.value == '1/hour':
+        duration_value = 'PT1H'
+    elif selectDuration.value == '1/minute':
+        duration_value = 'PT1M'
+
+    return period_value, duration_value
+
+def generate_datetime_range_map(event):
     m = init_map()
-    #bouding box
-    m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
-   
-    min_input= MinTimestamp.value
-    max_input= MaxTimestamp.value
+    
+    min_input= str(MinDate.value)
+    max_input= str(MaxDate.value)
 
     inside_range=False
 
     #plotting markers on the map
     for i in range(0, len(df)):
         
-        if df.iloc[i]['t'].astype(str) in min_input or inside_range == True:
+        if df.iloc[i]['ts'] in min_input or inside_range == True:
             inside_range=True
-            x = df.iloc[i]['oid'].astype(int)
             folium.CircleMarker(location=[df.iloc[i]['lat'], df.iloc[i]['lon']],
                                 radius=2, weight=5,
                                 color='blue', popup=df.iloc[i]['oid']).add_to(m)
-            if df.iloc[i]['t'].astype(str) in max_input:
+            if df.iloc[i]['ts'] in max_input:
                 inside_range=False
     
-    pyscript.write('folium4', m)
+    folium_pane.object = m
    
 
 def generate_default_map(event):
+    #default map: blue points only based on lat, lon
     m = init_map()
-    #default map: blue points only based on lon, lat
-    m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
     
     #plotting markers on the map
     for i in range(0, len(df)):
@@ -302,23 +371,21 @@ def generate_default_map(event):
                             radius=2, weight=5,
                             color='blue', popup=df.iloc[i]['oid']).add_to(m)
 
-    pyscript.write('folium', m)
+    folium.LatLngPopup().add_to(m)
 
+    folium_pane.object = m
+    document.getElementById('folium').style.display = 'block'
 
-def generate_default_map_with_timeslider(event):
-    m = init_map()
+def generate_default_map_with_timeslider():
     #default map with timeslider: blue points only based on lon, lat with timeslider based on timestamps
-
-    m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
+    m = init_map()
 
     #create the features input for the TimestampedGeoJson
     features = []
 
-    extra_seconds = 0
-
     for i in range(0, len(df)):
-
-        time_stamp = str(pd.to_datetime(df.iloc[0]['t'], unit='ms') + datetime.timedelta(0, 60*extra_seconds)).split('.')[0]
+        time_stamp = datetime.fromisoformat(df.iloc[i]['ts'])
+        iso_time_stamp = time_stamp.isoformat()
         feature = {
             'type': 'Feature',
             'geometry': {
@@ -326,11 +393,11 @@ def generate_default_map_with_timeslider(event):
                 'coordinates': [float(df.iloc[i]['lon']), float(df.iloc[i]['lat'])]
             },
             'properties': {
-                'time': time_stamp,
+                'time': iso_time_stamp,
                 'style': {'color': ''},
                 'icon': 'circle',
                 'iconstyle': {
-                    'fillColor': '#0000FF',
+                    'fillColor': 'blue',
                     'fillOpacity': 0.8,
                     'stroke': 'true',
                     'radius': 5
@@ -338,37 +405,27 @@ def generate_default_map_with_timeslider(event):
             }
         }
         features.append(feature)
-        extra_seconds += 1
     
-    #period (str, default "P1D") – Used to construct the array of available times starting from the first available time.
-    #Format: ISO8601 Duration ex: ‘P1M’ 1/month, ‘P1D’ 1/day, ‘PT1H’ 1/hour, and ‘PT1M’ 1/minute
+    period_value, duration_value = format_period_duration()
 
-    #duration (str, default None) – Period of time which the features will be shown on the map after their time has passed.
-    #If None, all previous times will be shown.
-    #Format: ISO8601 Duration ex: ‘P1M’ 1/month, ‘P1D’ 1/day, ‘PT1H’ 1/hour, and ‘PT1M’ 1/minute
+    plugins.TimestampedGeoJson({
+        "type": "FeatureCollection",
+        "features": features,
+        },
+        period=period_value,
+        duration=duration_value,
+        add_last_point=True).add_to(m)
 
-    #default - better results:
-    #period='PT1H'
-    #duration='P1M'
-    
-    plugins.TimestampedGeoJson(features,
-                       period=selectPeriod.value,
-                       duration=selectDuration.value,
-                       transition_time=1000,
-                       auto_play=True).add_to(m)
-
-    pyscript.write('folium1', m)
+    folium_pane.object = m
 
 
 def generate_trajectories_map():
+    #trajectories map: colorful points based on oid
     m = init_map()
-    #trajectories map: colorful points based on trajectories
-
+    
     if trajectories_df.empty:
         #calling trajectories function for color initialization
         traj_df = trajectories()
-        #bounding box
-        m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
     else:
         traj_df = trajectories_df
 
@@ -381,16 +438,15 @@ def generate_trajectories_map():
                             radius=2, weight=5,
                             color=traj_color, popup=df.iloc[i]['oid']).add_to(m)
     
-    pyscript.write('folium2', m)
+    folium_pane.object = m
 
 
 def generate_speed_map():
+    #speed map: different scolored points based on mean speed
     m = init_map()
-    #speed map: different sized points based on mean speed
 
-    m.fit_bounds([[df['lat'].min(), df['lon'].min()], [df['lat'].max(), df['lon'].max()]])
     mean_s = speed_mean()
-    #max_seepd = df.loc[df['speed'].idxmax()].astype(int)
+    #max_speed = df.loc[df['speed'].idxmax()].astype(int)
 
     #define the color scale
     color_scale = cmp.StepColormap(
@@ -416,25 +472,157 @@ def generate_speed_map():
     #add color scale to map
     color_scale.add_to(m)
 
-    pyscript.write('folium3', m)
+    folium_pane.object = m
+
+def generate_customized_speed_map():
+    m = init_map()
+
+    mean_s = speed_mean()
+
+    #define the color scale
+    color_scale = cmp.StepColormap(
+        ['red', 'orange', 'green'],
+        vmin=0.0, vmax=100,
+        index=[0.0, 1, mean_s, 100],  
+        caption='Color Scale for Speed'    
+    )
+    #create the features input for the TimestampedGeoJson
+    features = []
+    
+    #plotting markers on the map
+    for i in range(0, len(df)):
+        speed_color = 'orange'
+
+        if df.iloc[i]['speed'].astype(int) > mean_s:
+            speed_color = 'green'
+        elif df.iloc[i]['speed'].astype(int) == 0:
+            speed_color = 'red'
+
+        time_stamp = datetime.fromisoformat(df.iloc[i]['ts'])
+        iso_time_stamp = time_stamp.isoformat()
+        feature = {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [float(df.iloc[i]['lon']), float(df.iloc[i]['lat'])]
+            },
+            'properties': {
+                'time': iso_time_stamp,
+                'style': {'color': ''},
+                'icon': 'circle',
+                'iconstyle': {
+                    'fillColor': speed_color,
+                    'fillOpacity': 0.8,
+                    'stroke': 'true',
+                    'radius': 5
+                }
+            }
+        }
+        features.append(feature)
+
+    period_value, duration_value = format_period_duration() 
+
+    plugins.TimestampedGeoJson({
+        "type": "FeatureCollection",
+        "features": features,
+        },
+        period=period_value,
+        duration=duration_value,
+        add_last_point=True).add_to(m)
+
+    #add color scale to map
+    color_scale.add_to(m)
+
+    folium_pane.object = m
+    
+
+def generate_customized_oid_map():
+    m = init_map()
+    
+    if trajectories_df.empty:
+        #calling trajectories function for color initialization
+        traj_df = trajectories()
+    else:
+        traj_df = trajectories_df
+
+    #create the features input for the TimestampedGeoJson
+    features = []
+
+    #plotting markers on the map
+    for i in range(0, len(df)):
+        x = df.iloc[i]['oid'].astype(int)
+        traj_color = traj_df.iloc[x]['color']
+
+        time_stamp = datetime.fromisoformat(df.iloc[i]['ts'])
+        iso_time_stamp = time_stamp.isoformat()
+        feature = {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [float(df.iloc[i]['lon']), float(df.iloc[i]['lat'])]
+            },
+            'properties': {
+                'time': iso_time_stamp,
+                'style': {'color': ''},
+                'icon': 'circle',
+                'iconstyle': {
+                    'fillColor': traj_color,
+                    'fillOpacity': 0.8,
+                    'stroke': 'true',
+                    'radius': 5
+                }
+            }
+        }
+        features.append(feature)
+
+    period_value, duration_value = format_period_duration()
+
+    plugins.TimestampedGeoJson({
+        "type": "FeatureCollection",
+        "features": features,
+        },
+        period=period_value,
+        duration=duration_value,
+        add_last_point=True).add_to(m)
+
+
+    folium_pane.object = m
 
 
 def map_options(event):
-    if LatSelect.value == 'lat' and LonSelect.value == 'lon' and AltitudeSelect.value == 'speed':
+    if AltitudeSelect.value == 'speed' and selectPeriod.value == '' and selectDuration.value == '':
+        ErrorText.value = ''
         generate_speed_map()
-    elif LatSelect.value == 'lat' and LonSelect.value == 'lon' and AltitudeSelect.value == 'oid':
+    elif AltitudeSelect.value == 'oid' and selectPeriod.value == '' and selectDuration.value == '' :
+        ErrorText.value = ''
         generate_trajectories_map()
-    else:
-        ErrorText.value = 'Error: Cannot show map results with specific columns!'
-        
+    elif AltitudeSelect.value == 'speed' and selectPeriod.value != '' and selectDuration.value != '':
+        ErrorText.value = ''
+        generate_customized_speed_map()
+    elif AltitudeSelect.value == 'oid' and selectPeriod.value != '' and selectDuration.value != '' :
+        ErrorText.value = ''
+        generate_customized_oid_map()
+    elif AltitudeSelect.value == '' and selectPeriod.value != '' and selectDuration != '':
+        ErrorText.value = ''
+        generate_default_map_with_timeslider()
+    elif AltitudeSelect.value != 'oid' or AltitudeSelect.value != 'speed':
+        if AltitudeSelect.value == '':
+            if selectPeriod.value != '' and selectDuration.value == '':
+                ErrorText.value = 'Error: Cannot show map results without selecting both period and duration! Solution: select a value for both period and duration or unselect both values.'
+            elif selectPeriod.value == '' and selectDuration.value != '':
+                ErrorText.value = 'Error: Cannot show map results without selecting both period and duration! Solution: select a value for both period and duration or unselect both values.'
+        else:
+            ErrorText.value = 'Error: Cannot show map results with specific color column!'
+    else: 
+        ErrorText.value = 'Error: Something went wrong! Please refresh the page.'
+
 
 def main():
     uploadButton.on_click(process_file)
     generateDefaultMap.on_click(generate_default_map) 
     generatePlots.on_click(plots)
-    generateDefaultMapWithTimeslider.on_click(generate_default_map_with_timeslider)
     generateCustomizedMap.on_click(map_options)
-    generateTimestampMap.on_click(generate_timestamp_map)
+    generateTimestampMap.on_click(generate_datetime_range_map)
 
 main()
 
@@ -446,15 +634,26 @@ await show(table, 'table')
 await show(generatePlots, 'generateplots')
 await show(selectPeriod, 'selectperiod')
 await show(selectDuration, 'selectduration')
-await show(generateDefaultMapWithTimeslider, 'generatedefaultmapwithtimeslider')
 await show(LatSelect, 'lat')
 await show(LonSelect, 'lon')
 await show(AltitudeSelect, 'altitude')
 await show(ColumnText, 'columns')
 await show(ErrorText, 'errortext')
 await show(generateCustomizedMap, 'generatecustomizedmap')
-await show(MinTimestamp, 'min')
-await show(MaxTimestamp, 'max')
+await show(MinDate, 'min')
+await show(MaxDate, 'max')
 await show(generateTimestampMap, 'generatetimestampmap')
+await show(TimesliderText, 'timeslider')
+await show(folium_pane, 'folium')
+await show(s00Text, 's00')
+await show(s0Text, 's0')
+await show(s11Text, 's11')
+await show(s1Text, 's1')
+await show(s21Text, 's21')
+await show(s2Text, 's2')
+await show(s31Text, 's31')
+await show(s3Text, 's3')
+await show(s41Text, 's41')
+await show(s4Text, 's4')
     </py-script>
 </body>
