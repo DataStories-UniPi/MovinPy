@@ -174,11 +174,6 @@ def process_file(event):
         table.value = pd.read_csv(io.BytesIO(fileInput.value))
         global df
         df = table.value 
-        #process data
-        if 'mmsi' in df.columns:
-            df = df.rename(columns={'mmsi': 'oid'})
-        elif 'id' in df.columns:
-            df = df.rename(columns={'id': 'oid'})
 
         document.getElementById('table').style.display = 'block'
 
